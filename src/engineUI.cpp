@@ -1,7 +1,7 @@
 #include "engineUI.h"
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_glfw.h"
-#include "imgui/backends/imgui_impl_opengl3.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include <iostream>
 #include <string>
 
@@ -12,82 +12,82 @@ EngineUI::~EngineUI() {
 }
 
 void EngineUI::Initialize(GLFWwindow* window) {
-    // Setup ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Habilita navegação por teclado
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Habilita docking
-    
-    // Setup ImGui style
-    ImGui::StyleColorsDark();
-    
-    // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 130");
+    IMGUI_CHECKVERSION();                        // Verifica se a versão do ImGui está correta
+    ImGui::CreateContext();                      // Cria o contexto principal do ImGui
+    ImGuiIO& io = ImGui::GetIO(); (void)io;      // Acessa configurações de input/output
+
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Ativa navegação por teclado
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // Ativa sistema de docking (arrastar painéis)
+
+    ImGui::StyleColorsDark();                    // Define o estilo dark
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);  // Inicializa ImGui com GLFW
+    ImGui_ImplOpenGL3_Init("#version 130");      // Inicializa renderização com OpenGL
 }
 
 void EngineUI::BeginFrame() {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
+    ImGui_ImplOpenGL3_NewFrame();      // Nova frame para renderização OpenGL
+    ImGui_ImplGlfw_NewFrame();         // Nova frame para eventos do GLFW
+    ImGui::NewFrame();                 // Inicia nova frame ImGui
 }
 
 void EngineUI::Render() {
-    DrawMainDockspace();
+    DrawMainDockspace();               // Chama o método que desenha tudo
 }
 
 void EngineUI::EndFrame() {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGui::Render();                               // Finaliza o frame
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());  // Desenha na tela
 }
 
 void EngineUI::Shutdown() {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    ImGui_ImplOpenGL3_Shutdown();      // Libera recursos de OpenGL
+    ImGui_ImplGlfw_Shutdown();         // Libera recursos do GLFW
+    ImGui::DestroyContext();           // Destroi o contexto ImGui
 }
 
+
 void EngineUI::DrawMainDockspace() {
-    // Configurações para janela de docking
+    // Define flags da janela principal
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->Pos);
-    ImGui::SetNextWindowSize(viewport->Size);
-    ImGui::SetNextWindowViewport(viewport->ID);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGuiViewport* viewport = ImGui::GetMainViewport();       // Pega o viewport da janela principal
+    ImGui::SetNextWindowPos(viewport->Pos);                   // Posição
+    ImGui::SetNextWindowSize(viewport->Size);                 // Tamanho
+    ImGui::SetNextWindowViewport(viewport->ID);               // Associa ao viewport principal
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);  // Estilo: bordas retas
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-    
-    // Criar janela principal
-    ImGui::Begin("DockSpace", nullptr, window_flags);
+
+    // Mais flags
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::Begin("DockSpace", nullptr, window_flags);  // Cria a janela invisível
     ImGui::PopStyleVar(2);
-    
-    // Menu bar
-    DrawMenuBar();
-    
-    // Configurar DockSpace
-    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
-    
-    // Desenhar os diferentes painéis
+
+    DrawMenuBar();  // Desenha a barra de menus
+
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");       // ID único para o Dock
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f));        // Cria espaço de docking
+
+    // Desenha os painéis
     DrawViewport();
     DrawHierarchy();
     DrawInspector();
     DrawAssetBrowser();
     DrawConsole();
-    
-    ImGui::End(); // DockSpace
+
+    ImGui::End();
 }
 
 void EngineUI::DrawViewport() {
-    ImGui::Begin("Viewport");
-    ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+    ImGui::Begin("Viewport");                                  // Janela do Viewport
+    ImVec2 viewportSize = ImGui::GetContentRegionAvail();      // Pega o tamanho interno disponível
     ImGui::Text("Tamanho do Viewport: %.0fx%.0f", viewportSize.x, viewportSize.y);
     ImGui::End();
 }
 
+//Mostra uma cena com objetos que podem ser expandidos e colapsados.
 void EngineUI::DrawHierarchy() {
     ImGui::Begin("Hierarquia");
     if (ImGui::TreeNode("Cena")) {
@@ -105,20 +105,25 @@ void EngineUI::DrawHierarchy() {
     ImGui::End();
 }
 
+//painel para editar propriedades de posição, 
+//rotação e escala de um objeto selecionado.
+
+
 void EngineUI::DrawInspector() {
     ImGui::Begin("Inspector");
     ImGui::Text("Propriedades do Objeto Selecionado");
     ImGui::Separator();
+
     ImGui::Text("Nome: ");
     ImGui::SameLine();
     ImGui::InputText("##nome", m_ObjectName, IM_ARRAYSIZE(m_ObjectName));
-    
+
     ImGui::Text("Posição:");
-    ImGui::DragFloat3("##pos", m_Position, 0.1f);
-    
+    ImGui::DragFloat3("##pos", m_Position, 0.1f);   // XYZ com slider
+
     ImGui::Text("Rotação:");
     ImGui::DragFloat3("##rot", m_Rotation, 0.1f);
-    
+
     ImGui::Text("Escala:");
     ImGui::DragFloat3("##scale", m_Scale, 0.1f);
     ImGui::End();

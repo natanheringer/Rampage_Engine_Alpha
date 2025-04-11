@@ -1,6 +1,9 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include "engineUI.h"
+#include <C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW/glm-master/glm-master/glm/glm.hpp>
+#include <C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW/glm-master/glm-master/glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 int main() {
     // Inicializar GLFW
@@ -27,27 +30,29 @@ int main() {
     // Loop principal
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        
-        // Preparar frame
+    
+        // Preparar frame ImGui
         engineUI.BeginFrame();
-        
-        // Renderizar UI da engine
-        engineUI.Render();
-        
-        // Finalizar frame
-        engineUI.EndFrame();
-        
-        // Renderização OpenGL
+    
+        // Limpar tela com cor de fundo antes de desenhar ImGui
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        
+    
+        // Renderizar UI da engine
+        engineUI.Render();
+    
+        // Finalizar frame (renderizar ImGui por cima da tela limpa)
+        engineUI.EndFrame();
+    
         // Trocar buffers
         glfwSwapBuffers(window);
     }
-
+    glm::vec3 pos(1.0f, 2.0f, 3.0f);
+    std::cout << "X: " << pos.x << "\n";
+   
     // Limpar
     engineUI.Shutdown();
     glfwDestroyWindow(window);
