@@ -5,6 +5,11 @@
 #include <iostream>
 #include <string>
 
+
+void EngineUI::SetFramebuffer(Framebuffer* framebuffer) {
+    m_Framebuffer = framebuffer;
+}
+
 EngineUI::EngineUI() {
 }
 
@@ -72,7 +77,7 @@ void EngineUI::DrawMainDockspace() {
 
     // Desenha os painéis
     DrawViewport();
-    DrawHierarchy();
+    //DrawHierarchy();
     DrawInspector();
     DrawAssetBrowser();
     DrawConsole();
@@ -80,28 +85,19 @@ void EngineUI::DrawMainDockspace() {
     ImGui::End();
 }
 
-void EngineUI::DrawViewport() {
-    ImGui::Begin("Viewport");                                  // Janela do Viewport
-    ImVec2 viewportSize = ImGui::GetContentRegionAvail();      // Pega o tamanho interno disponível
-    ImGui::Text("Tamanho do Viewport: %.0fx%.0f", viewportSize.x, viewportSize.y);
-    ImGui::End();
-}
 
 //Mostra uma cena com objetos que podem ser expandidos e colapsados.
-void EngineUI::DrawHierarchy() {
-    ImGui::Begin("Hierarquia");
-    if (ImGui::TreeNode("Cena")) {
-        if (ImGui::TreeNode("Camera")) {
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("Player")) {
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("Ambiente")) {
-            ImGui::TreePop();
-        }
-        ImGui::TreePop();
+void EngineUI::DrawViewport() {
+    ImGui::Begin("Viewport");
+
+    m_ViewportHovered = ImGui::IsWindowHovered();
+    m_ViewportSize = ImGui::GetContentRegionAvail();
+
+    if (m_Framebuffer) {
+        ImTextureID textureID = (ImTextureID)(uintptr_t)m_Framebuffer->GetTextureID();
+        ImGui::Image(textureID, m_ViewportSize, ImVec2(0, 1), ImVec2(1, 0));
     }
+
     ImGui::End();
 }
 
@@ -172,4 +168,6 @@ void EngineUI::DrawMenuBar() {
         }
         ImGui::EndMenuBar();
     }
+
+    
 }

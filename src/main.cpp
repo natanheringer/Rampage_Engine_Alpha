@@ -1,9 +1,15 @@
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+
 #include "engineUI.h"
-#include <C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW/glm-master/glm-master/glm/glm.hpp>
-#include <C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW/glm-master/glm-master/glm/gtc/matrix_transform.hpp>
+#include "camera.h"
+#include "framebuffer.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <imgui.h>
 
 int main() {
     // Inicializar GLFW
@@ -21,42 +27,64 @@ int main() {
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-    
-    // Criar e inicializar a UI da engine
+    glfwSwapInterval(1); // Habilitar VSync
+
+    // Inicializar GLAD
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Falha ao inicializar GLAD\n";
+        return -1;
+    }
+
+    // Inicializar EngineUI
     EngineUI engineUI;
     engineUI.Initialize(window);
+
+    // Inicializar framebuffer
+    Framebuffer framebuffer(1280, 720);
+    engineUI.SetFramebuffer(&framebuffer);
 
     // Loop principal
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-    
-        // Preparar frame ImGui
-        engineUI.BeginFrame();
-    
-        // Limpar tela com cor de fundo antes de desenhar ImGui
+
+        // Obter tamanho atual da janela
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
+
+        // Verificar tamanho do Viewport do ImGui
+        ImVec2 viewportSize = engineUI.GetViewportSize();
+        if ((int)viewportSize.x != framebuffer.GetWidth() || (int)viewportSize.y != framebuffer.GetHeight()) {
+            framebuffer.Resize((int)viewportSize.x, (int)viewportSize.y);
+        }
+
+        // Renderizar cena no framebuffer
+        framebuffer.Bind();
+        glEnable(GL_DEPTH_TEST);
+        glViewport(0, 0, framebuffer.GetWidth(), framebuffer.GetHeight());
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-    
-        // Renderizar UI da engine
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // =======================
+        // RENDERIZAÇÃO OPENGL AQUI
+        
+        // (Nenhum shader/modelo fornecido)
+        // =======================
+
+        framebuffer.Unbind();
+
+        // Renderizar UI
+        engineUI.BeginFrame();
         engineUI.Render();
-    
-        // Finalizar frame (renderizar ImGui por cima da tela limpa)
         engineUI.EndFrame();
-    
-        // Trocar buffers
+
+        // Exibir na janela principal
         glfwSwapBuffers(window);
     }
-    glm::vec3 pos(1.0f, 2.0f, 3.0f);
-    std::cout << "X: " << pos.x << "\n";
-   
-    // Limpar
+
+    // Finalizar
     engineUI.Shutdown();
     glfwDestroyWindow(window);
     glfwTerminate();
-    
+
     return 0;
 }
