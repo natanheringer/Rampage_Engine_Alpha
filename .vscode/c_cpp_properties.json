@@ -5,8 +5,13 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "C:/msys64/mingw64/include",
-    "C:/msys64/mingw64/include/GLFW",
-    "C:/msys64/mingw64/include/GL"
+                "C:/msys64/mingw64/include/GLFW",
+                "C:/msys64/mingw64/include/GL",
+                "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW",
+                  "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui",
+                 "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui",
+                 "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui/backends"
+
             ],
             "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
             "cStandard": "c11",
