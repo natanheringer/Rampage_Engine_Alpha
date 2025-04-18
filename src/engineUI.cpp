@@ -16,6 +16,8 @@ EngineUI::EngineUI() {
 EngineUI::~EngineUI() {
 }
 
+
+
 void EngineUI::Initialize(GLFWwindow* window) {
     IMGUI_CHECKVERSION();                        // Verifica se a versão do ImGui está correta
     ImGui::CreateContext();                      // Cria o contexto principal do ImGui
@@ -77,7 +79,7 @@ void EngineUI::DrawMainDockspace() {
 
     // Desenha os painéis
     DrawViewport();
-    //DrawHierarchy();
+    DrawHierarchy();
     DrawInspector();
     DrawAssetBrowser();
     DrawConsole();
@@ -148,6 +150,21 @@ void EngineUI::DrawConsole() {
     ImGui::Text("Aguardando comandos...");
     ImGui::End();
 }
+
+//desenha a hierarquia
+void EngineUI::DrawHierarchy() {
+    ImGui::Begin("Hierarchy");
+
+    if (ImGui::TreeNode("Scene")) {
+        if (ImGui::Selectable("Cubo.obj")) {
+            m_SelectedObject = "Cubo.obj";
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::End();
+}
+
 
 void EngineUI::DrawMenuBar() {
     if (ImGui::BeginMenuBar()) {

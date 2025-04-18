@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include "framebuffer.h"
 #include "imgui.h"
+#include <string>
 
 class EngineUI {
 public:
@@ -36,10 +37,14 @@ private:
 
     // Dados do painel Inspector
     char m_ObjectName[128] = "Player";
+    float* GetPosition() { return m_Position; }
+    float* GetRotation() { return m_Rotation; }
+    float* GetScale()    { return m_Scale;    }
     float m_Position[3] = { 0.0f, 0.0f, 0.0f };
     float m_Rotation[3] = { 0.0f, 0.0f, 0.0f };
     float m_Scale[3] = { 1.0f, 1.0f, 1.0f };
 
     // Dados do painel Assets
     int m_AssetTypeIndex = 0;
+    std::string m_SelectedObject;
 };

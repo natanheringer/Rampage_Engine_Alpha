@@ -5,11 +5,16 @@
 #include "engineUI.h"
 #include "camera.h"
 #include "framebuffer.h"
+#include "shader.h"
+#include "mesh.h"
+
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
+
+
 
 int main() {
     // Inicializar GLFW
@@ -43,6 +48,12 @@ int main() {
     Framebuffer framebuffer(1280, 720);
     engineUI.SetFramebuffer(&framebuffer);
 
+
+    Camera camera;
+    Shader shader("shaders/basic.vert", "shaders/basic.frag");
+    Mesh cube;
+    cube.LoadFromOBJ("assets/Cube.obj");
+
     // Loop principal
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -61,14 +72,25 @@ int main() {
         framebuffer.Bind();
         glEnable(GL_DEPTH_TEST);
         glViewport(0, 0, framebuffer.GetWidth(), framebuffer.GetHeight());
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // =======================
-        // RENDERIZAÇÃO OPENGL AQUI
-        
-        // (Nenhum shader/modelo fornecido)
-        // =======================
+        // View/Proj matrices
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)framebuffer.GetWidth() / framebuffer.GetHeight(), 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
+        shader.Use();
+        shader.SetMat4("model", model);
+
+
+        // Render
+        shader.Use();
+        shader.SetMat4("model", model);
+        shader.SetMat4("view", view);
+        shader.SetMat4("projection", projection);
+        cube.Draw();
+         // Cria o shader
+        Shader shader("shaders/basic.vert", "shaders/basic.frag");
 
         framebuffer.Unbind();
 
