@@ -93,6 +93,7 @@ void EngineUI::DrawViewport() {
     ImGui::Begin("Viewport");
 
     m_ViewportHovered = ImGui::IsWindowHovered();
+    if (m_ViewportHovered) { std::cout << "Viewport Hovered!" << std::endl; }
     m_ViewportSize = ImGui::GetContentRegionAvail();
 
     if (m_Framebuffer) {
