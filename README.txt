@@ -4,7 +4,7 @@
 
 Overall Structure:
 
-This is a basic 3D engine structure using C++, OpenGL (via GLAD and GLFW), GLM for math, and ImGui for the user interface. The goal is tp create a simple editor environment where a 3D scene is rendered into a texture, which is then displayed within an ImGui panel (the "Viewport").
+This is a basic 3D engine structure using C++, OpenGL (via GLAD and GLFW), GLM for math, and ImGui for the user interface. The goal is to create a simple editor environment where a 3D scene is rendered into a texture, which is then displayed within an ImGui panel (the "Viewport").
 File Breakdown:
 
 main.cpp
