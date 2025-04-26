@@ -1,5 +1,5 @@
 
-===============================================[Rampage Engine Code Functions Explained]===============================================
+================================[Rampage Engine Code Functions Explained]==================================
 
 
 Overall Structure:
