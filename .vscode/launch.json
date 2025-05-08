@@ -9,9 +9,9 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "c:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha",
-      "program": "c:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/build/Debug/outDebug",
+      "program": "${workspaceFolder}/build/Rampage_Engine_Alpha.exe",
       "MIMode": "gdb",
-      "miDebuggerPath": "gdb",
+      "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
       "setupCommands": [
         {
           "description": "Enable pretty-printing for gdb",

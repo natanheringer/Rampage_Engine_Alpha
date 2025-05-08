@@ -8,6 +8,8 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
+                "-static-libgcc",
+                "-static-libstdc++",
                 "src/main.cpp",
                 "src/engineUI.cpp",
                 "src/camera.cpp",

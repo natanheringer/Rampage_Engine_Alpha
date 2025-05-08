@@ -4,23 +4,19 @@
             "name": "windows-gcc-x64",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include/glad",
-        "${workspaceFolder}/include/KHR",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/imgui",
+                "${workspaceFolder}/imgui/backends",
                 "C:/msys64/mingw64/include",
-                "C:/msys64/mingw64/include/GLFW",
                 "C:/msys64/mingw64/include/GL",
-                "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/glm",
-                "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/include/GLFW",
-                  "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui",
-                 "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui",
-                 "C:/Users/Natan/Documents/GitHub/Rampage_Engine_Alpha/imgui/backends"
-
+                "C:/msys64/mingw64/include/GLFW",
+                "${workspaceFolder}/include/glm"
             ],
             "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-gcc-x64",
-            "compilerArgs": []
+            "defines": []
         }
     ],
     "version": 4
