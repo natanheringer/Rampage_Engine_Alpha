@@ -1,15 +1,41 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# Exclude third-party libraries from language stats
+# Exclude ALL third-party libraries from language stats
 include/** linguist-vendored
 imgui/** linguist-vendored
 tinyobjloader-release/** linguist-vendored
 libs/** linguist-vendored
 lib/** linguist-vendored
+glad/** linguist-vendored
+KHR/** linguist-vendored
+GLFW/** linguist-vendored
 
 # Mark compiled libraries as generated
 lib/*.a linguist-generated
 lib/*.lib linguist-generated
 lib/*.dll linguist-generated
 build/** linguist-generated
+
+# Exclude specific massive files that dominate language stats
+imgui/imgui.cpp linguist-vendored
+imgui/imgui_draw.cpp linguist-vendored
+imgui/imgui_widgets.cpp linguist-vendored
+imgui/imgui_tables.cpp linguist-vendored
+imgui/imgui_demo.cpp linguist-vendored
+imgui/imgui_internal.h linguist-vendored
+imgui/imgui.h linguist-vendored
+imgui/backends/** linguist-vendored
+imgui/examples/** linguist-vendored
+imgui/misc/** linguist-vendored
+
+# Exclude GLM headers
+include/glm/** linguist-vendored
+
+# Exclude TinyOBJLoader
+tinyobjloader-release/** linguist-vendored
+
+# Force exclude all large C++ files in third-party directories
+**/imgui/** linguist-vendored
+**/glm/** linguist-vendored
+**/tinyobjloader/** linguist-vendored
