@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include "material.h"
+#include "shader.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -19,8 +21,11 @@ bool Mesh::LoadFromOBJ(const std::string& path) {
         return false;
     }
 
-    // Store vertex positions temporarily as in your original code
+    // Temporary storage for vertex data
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec2> texCoords;
+    std::vector<glm::vec3> normals;
+    
     // Clear member vectors before loading new data
     m_Vertices.clear();
     m_Indices.clear();
@@ -32,72 +37,109 @@ bool Mesh::LoadFromOBJ(const std::string& path) {
         ss >> prefix;
 
         if (prefix == "v") {
+            // Vertex position
             glm::vec3 pos;
             ss >> pos.x >> pos.y >> pos.z;
-            positions.push_back(pos); // Store positions read
+            positions.push_back(pos);
+        } else if (prefix == "vt") {
+            // Texture coordinate
+            glm::vec2 texCoord;
+            ss >> texCoord.x >> texCoord.y;
+            texCoords.push_back(texCoord);
+        } else if (prefix == "vn") {
+            // Normal
+            glm::vec3 normal;
+            ss >> normal.x >> normal.y >> normal.z;
+            normals.push_back(normal);
         } else if (prefix == "f") {
-            // --- MODIFICATION START ---
-            // This block is replaced to handle v/vt/vn and quads
-
-            std::vector<unsigned int> face_vertex_indices; // Temp store for this face's vertex indices
-            std::string vertex_spec; // To read "v/vt/vn" chunks
-            unsigned int vertex_index; // Extracted vertex index
-
-            // Read all vertex specifications (like "1/1/1", "5/2/1", etc.) from the line
+            // Face - handle v/vt/vn format
+            std::vector<unsigned int> face_vertex_indices;
+            std::vector<unsigned int> face_tex_indices;
+            std::vector<unsigned int> face_normal_indices;
+            std::string vertex_spec;
+            
             while (ss >> vertex_spec) {
                 std::stringstream face_ss(vertex_spec);
                 std::string segment;
-
-                // Get the part before the first '/' (the vertex index string)
+                unsigned int vertex_index = 0, tex_index = 0, normal_index = 0;
+                
+                // Parse vertex index
                 if (std::getline(face_ss, segment, '/')) {
-                    // Convert string to unsigned int, OBJ indices are 1-based
-                    vertex_index = std::stoul(segment);
-                    face_vertex_indices.push_back(vertex_index - 1); // Store the 0-based index
+                    if (!segment.empty()) {
+                        vertex_index = std::stoul(segment);
+                    }
                 }
-                 // Ignore the rest (vt, vn parts) for now
+                
+                // Parse texture coordinate index
+                if (std::getline(face_ss, segment, '/')) {
+                    if (!segment.empty()) {
+                        tex_index = std::stoul(segment);
+                    }
+                }
+                
+                // Parse normal index
+                if (std::getline(face_ss, segment, '/')) {
+                    if (!segment.empty()) {
+                        normal_index = std::stoul(segment);
+                    }
+                }
+                
+                face_vertex_indices.push_back(vertex_index - 1); // Convert to 0-based
+                face_tex_indices.push_back(tex_index - 1);
+                face_normal_indices.push_back(normal_index - 1);
             }
 
-            // Triangulate the face (handle quads specifically)
+            // Triangulate the face
             if (face_vertex_indices.size() >= 3) {
-                // First triangle (works for triangles and quads)
+                // First triangle
                 m_Indices.push_back(face_vertex_indices[0]);
                 m_Indices.push_back(face_vertex_indices[1]);
                 m_Indices.push_back(face_vertex_indices[2]);
 
-                // If it was a quad (or more complex polygon starting with a quad), create the second triangle
+                // If it was a quad, create the second triangle
                 if (face_vertex_indices.size() == 4) {
-                    m_Indices.push_back(face_vertex_indices[0]); // v1
-                    m_Indices.push_back(face_vertex_indices[2]); // v3
-                    m_Indices.push_back(face_vertex_indices[3]); // v4
+                    m_Indices.push_back(face_vertex_indices[0]);
+                    m_Indices.push_back(face_vertex_indices[2]);
+                    m_Indices.push_back(face_vertex_indices[3]);
                 }
-                // Note: This doesn't handle polygons with > 4 vertices robustly,
-                // but it will work for standard cubes exported as quads.
             }
-            // --- MODIFICATION END ---
         }
-        // Ignore other lines like 'vt', 'vn', 'usemtl', 's' etc.
     }
 
-    // Populate m_Vertices using the collected positions, like original code
-    // Note: This simple approach copies all positions, which might include unused ones.
-    // A more optimized loader would only create vertices referenced by m_Indices.
-    for (const auto& pos : positions) {
-        m_Vertices.push_back({ pos });
+    // Create vertices with all attributes
+    for (size_t i = 0; i < positions.size(); ++i) {
+        Vertex vertex;
+        vertex.Position = positions[i];
+        
+        // Set texture coordinates (if available)
+        if (i < texCoords.size()) {
+            vertex.TexCoords = texCoords[i];
+        } else {
+            vertex.TexCoords = glm::vec2(0.0f, 0.0f);
+        }
+        
+        // Set normals (if available)
+        if (i < normals.size()) {
+            vertex.Normal = normals[i];
+        } else {
+            // Calculate a simple normal if not provided
+            vertex.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        
+        m_Vertices.push_back(vertex);
     }
 
     // Check if we loaded any geometry
-     if (m_Vertices.empty() || m_Indices.empty()) {
+    if (m_Vertices.empty() || m_Indices.empty()) {
         std::cerr << "Warning: Mesh data not loaded correctly (Vertices: "
                   << m_Vertices.size() << ", Indices: " << m_Indices.size() << ") from " << path << std::endl;
-        // Clean up any potentially half-created buffers if we are returning false
         glDeleteVertexArrays(1, &m_VAO); m_VAO = 0;
         glDeleteBuffers(1, &m_VBO); m_VBO = 0;
         glDeleteBuffers(1, &m_EBO); m_EBO = 0;
         return false;
     }
 
-
-    // Create VAO, VBO, EBO and upload data - kept from original code
+    // Create VAO, VBO, EBO and upload data
     glGenVertexArrays(1, &m_VAO);
     glGenBuffers(1, &m_VBO);
     glGenBuffers(1, &m_EBO);
@@ -110,13 +152,24 @@ bool Mesh::LoadFromOBJ(const std::string& path) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Indices.size() * sizeof(unsigned int), m_Indices.data(), GL_STATIC_DRAW);
 
-    // Setup vertex attributes - kept from original code
-    glEnableVertexAttribArray(0); // Position (assuming layout location 0)
+    // Setup vertex attributes
+    // Position attribute
+    glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-    // Add other attributes here if your Vertex struct and shaders use them (e.g., normals, UVs)
+    
+    // Texture coordinate attribute
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
+    
+    // Normal attribute
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
 
-    glBindVertexArray(0); // Unbind VAO
-    return true; // Success
+    glBindVertexArray(0);
+    
+    std::cout << "Loaded mesh: " << path << " (Vertices: " << m_Vertices.size() 
+              << ", Indices: " << m_Indices.size() << ")" << std::endl;
+    return true;
 }
 
 void Mesh::Draw() const {
@@ -129,6 +182,22 @@ void Mesh::Draw() const {
     // Drawing code kept from original
     glBindVertexArray(m_VAO);
     // Use GLsizei cast for size, which is technically more correct for glDrawElements count
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_Indices.size()), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Mesh::Draw(Shader* shader, Material* material) const {
+    if (m_VAO == 0 || m_Indices.empty()) {
+        return;
+    }
+
+    // Bind material if provided
+    if (material && shader) {
+        material->Bind(shader);
+    }
+
+    // Draw the mesh
+    glBindVertexArray(m_VAO);
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_Indices.size()), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }

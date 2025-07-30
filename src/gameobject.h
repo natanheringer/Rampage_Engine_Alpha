@@ -31,15 +31,15 @@ class GameObject {
     Transform transform;
 
     Mesh* mesh = nullptr; // Pointer to the mesh object uses 
-    // unsigned int textureID = 0; // add later if objects have unique textures 
+    class Material* material = nullptr; // Each GameObject can have its own material
 
     GameObject(const std::string& name = "GameObject", Mesh* mesh = nullptr)
         : name(name), mesh(mesh) {}
 
+    // Material management
+    void SetMaterial(class Material* mat) { material = mat; }
+    class Material* GetMaterial() const { return material; }
 
     // More components will be added later, components such as:
     // Rigidbody, Collider, Light, Camera, etc. 
-
-
-
 };

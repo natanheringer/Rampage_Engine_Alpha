@@ -1,4 +1,4 @@
-#include "Camera.h"
+#include "camera.h"
 
 Camera::Camera(float radius, float yaw, float pitch)
     : m_Distance(radius), m_Yaw(yaw), m_Pitch(pitch), m_FocusPoint(0.0f, 0.0f, 0.0f) {}

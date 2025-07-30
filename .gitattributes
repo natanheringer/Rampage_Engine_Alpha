@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Exclude third-party libraries from language stats
+include/** linguist-vendored
+imgui/** linguist-vendored
+tinyobjloader-release/** linguist-vendored
+
+# Optional: Also mark compiled libraries as generated
+lib/*.a linguist-generated
+lib/*.lib linguist-generated
+lib/*.dll linguist-generated

@@ -6,7 +6,9 @@
 #include <string>
 #include <glm/gtc/type_ptr.hpp> // For ImGui::DragFloat3 with glm vectors
 #include <cstring> // For strncpy (Safer C-style string copy)
-
+#include <glm/gtc/matrix_transform.hpp>
+#include "camera.h"
+#include "shader.h"
 
 void EngineUI::SetFramebuffer(Framebuffer* framebuffer) {
     m_Framebuffer = framebuffer;
@@ -26,11 +28,12 @@ EngineUI::~EngineUI() {
 }
 
 void EngineUI::Initialize(GLFWwindow* window) {
+    // Initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
@@ -49,6 +52,14 @@ void EngineUI::Render() {
 void EngineUI::EndFrame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    
+    // Update and Render additional Platform Windows
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        GLFWwindow* backup_current_context = glfwGetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        glfwMakeContextCurrent(backup_current_context);
+    }
 }
 
 void EngineUI::Shutdown() {
@@ -92,7 +103,6 @@ void EngineUI::DrawMainDockspace() {
 void EngineUI::DrawViewport() {
     ImGui::Begin("Viewport");
     m_ViewportHovered = ImGui::IsWindowHovered();
-    // Removed the debug print: if (m_ViewportHovered) { std::cout << "Viewport Hovered!" << std::endl; }
     m_ViewportSize = ImGui::GetContentRegionAvail();
 
     if (m_Framebuffer) {
@@ -101,7 +111,128 @@ void EngineUI::DrawViewport() {
              ImGui::Image(textureID, m_ViewportSize, ImVec2(0, 1), ImVec2(1, 0));
         }
     }
+
+    // NEW: Handle viewport mouse interaction for object selection and gizmo manipulation
+    if (ImGui::IsWindowHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        
+        // Convert to viewport coordinates
+        ImVec2 viewportMousePos = ImVec2(
+            mousePos.x - windowPos.x,
+            mousePos.y - windowPos.y
+        );
+        
+        // Debug mouse state
+        bool isMouseDown = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        bool isMouseDragging = ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+        bool isMouseHeld = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        
+        if (isMouseDown) {
+            std::cout << "Mouse clicked at: (" << viewportMousePos.x << ", " << viewportMousePos.y << ")" << std::endl;
+        }
+        if (isMouseDragging) {
+            std::cout << "Mouse dragging detected" << std::endl;
+        }
+        if (isMouseHeld && !isMouseDown) {
+            std::cout << "Mouse held (not dragging)" << std::endl;
+        }
+        
+        // Handle gizmo interaction first
+        HandleGizmoInteraction(viewportMousePos, m_ViewportSize, isMouseDown, isMouseDragging);
+        
+        // Handle object selection (only if not interacting with gizmo)
+        if (isMouseDown && m_HoveredAxis == -1 && !m_IsGizmoDragging) {
+            HandleViewportClick(viewportMousePos, m_ViewportSize);
+        }
+    }
+
     ImGui::End();
+}
+
+// NEW: Handle viewport clicking for object selection
+void EngineUI::HandleViewportClick(const ImVec2& clickPos, const ImVec2& viewportSize) {
+    if (!m_Camera || !m_SceneObjectsPtr) return;
+
+    // Convert screen coordinates to world ray
+    glm::vec3 rayOrigin, rayDirection;
+    rayOrigin = m_Camera->GetCameraPosition();
+    rayDirection = ScreenToWorldRay(clickPos, viewportSize);
+
+    // Pick object
+    GameObject* pickedObject = PickObject(rayOrigin, rayDirection);
+    if (pickedObject) {
+        m_SelectedObjectPtr = pickedObject;
+        std::cout << "Selected object: " << pickedObject->name << std::endl;
+    } else {
+        // Deselect if clicking on empty space
+        m_SelectedObjectPtr = nullptr;
+        std::cout << "Deselected all objects" << std::endl;
+    }
+}
+
+// NEW: Convert screen coordinates to world ray
+glm::vec3 EngineUI::ScreenToWorldRay(const ImVec2& screenPos, const ImVec2& viewportSize) {
+    if (!m_Camera) return glm::vec3(0.0f);
+
+    // Convert screen coordinates to normalized device coordinates (-1 to 1)
+    float x = (2.0f * screenPos.x) / viewportSize.x - 1.0f;
+    float y = 1.0f - (2.0f * screenPos.y) / viewportSize.y;
+
+    // Create ray in clip space
+    glm::vec4 rayClip = glm::vec4(x, y, -1.0f, 1.0f);
+
+    // Transform to eye space
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), viewportSize.x / viewportSize.y, 0.1f, 100.0f);
+    glm::mat4 view = m_Camera->GetViewMatrix();
+    
+    glm::vec4 rayEye = glm::inverse(projection) * rayClip;
+    rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+
+    // Transform to world space
+    glm::vec4 rayWorld = glm::inverse(view) * rayEye;
+    glm::vec3 rayDirection = glm::normalize(glm::vec3(rayWorld));
+
+    return rayDirection;
+}
+
+// NEW: Pick object using ray casting
+GameObject* EngineUI::PickObject(const glm::vec3& rayOrigin, const glm::vec3& rayDirection) {
+    if (!m_SceneObjectsPtr) return nullptr;
+
+    GameObject* closestObject = nullptr;
+    float closestDistance = std::numeric_limits<float>::max();
+
+    for (GameObject* obj : *m_SceneObjectsPtr) {
+        if (!obj || !obj->mesh) continue;
+
+        // Simple bounding sphere test for now
+        glm::vec3 objectPos = obj->transform.position;
+        float radius = 1.0f; // Assume unit radius for now
+
+        // Ray-sphere intersection
+        glm::vec3 oc = rayOrigin - objectPos;
+        float a = glm::dot(rayDirection, rayDirection);
+        float b = 2.0f * glm::dot(oc, rayDirection);
+        float c = glm::dot(oc, oc) - radius * radius;
+        float discriminant = b * b - 4 * a * c;
+
+        if (discriminant > 0) {
+            float t1 = (-b - sqrt(discriminant)) / (2.0f * a);
+            float t2 = (-b + sqrt(discriminant)) / (2.0f * a);
+            
+            if (t1 > 0 && t1 < closestDistance) {
+                closestDistance = t1;
+                closestObject = obj;
+            }
+            if (t2 > 0 && t2 < closestDistance) {
+                closestDistance = t2;
+                closestObject = obj;
+            }
+        }
+    }
+
+    return closestObject;
 }
 
 void EngineUI::DrawInspector() {
@@ -117,6 +248,23 @@ void EngineUI::DrawInspector() {
         if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer))) {
             obj->name = nameBuffer;
         }
+        ImGui::Separator();
+
+        // NEW: Gizmo mode selector
+        ImGui::Text("Gizmo Mode:");
+        if (ImGui::RadioButton("Translate", m_GizmoMode == GizmoMode::Translate)) {
+            m_GizmoMode = GizmoMode::Translate;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Rotate", m_GizmoMode == GizmoMode::Rotate)) {
+            m_GizmoMode = GizmoMode::Rotate;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Scale", m_GizmoMode == GizmoMode::Scale)) {
+            m_GizmoMode = GizmoMode::Scale;
+        }
+        
+        ImGui::Checkbox("Show Gizmos", &m_ShowGizmos);
         ImGui::Separator();
 
         ImGui::Text("Transform");
@@ -138,10 +286,99 @@ void EngineUI::DrawInspector() {
             ImGui::Text("Mesh: %s", "Assigned Mesh"); // Generic placeholder
         }
 
+        // NEW: Draw gizmo info
+        ImGui::Separator();
+        DrawGizmos();
+
     } else {
         ImGui::Text("No object selected.");
     }
     ImGui::End();
+}
+
+// NEW: Draw gizmos for selected object
+void EngineUI::DrawGizmos() {
+    if (!m_SelectedObjectPtr || !m_ShowGizmos) return;
+
+    // Get the selected object's world position
+    glm::vec3 objectPos = m_SelectedObjectPtr->transform.position;
+    
+    // Calculate gizmo size based on camera distance
+    float gizmoSize = 1.0f; // Fixed size for now
+    
+    // Draw coordinate axes as simple lines
+    // This is a basic implementation - in a real engine you'd use a proper gizmo library
+    
+    // Note: This would need to be called from the rendering loop, not from ImGui
+    // For now, we'll just add a visual indicator in the UI
+    ImGui::Text("Gizmo at: (%.2f, %.2f, %.2f)", objectPos.x, objectPos.y, objectPos.z);
+    
+    // Draw mode indicator
+    const char* modeNames[] = {"Translate", "Rotate", "Scale"};
+    ImGui::Text("Current Mode: %s", modeNames[static_cast<int>(m_GizmoMode)]);
+}
+
+// NEW: Render 3D gizmos in the viewport
+void EngineUI::RenderGizmos(Shader* shader, const glm::mat4& view, const glm::mat4& projection) {
+    if (!m_SelectedObjectPtr || !m_ShowGizmos) {
+        std::cout << "Gizmo rendering skipped - no selected object or gizmos disabled" << std::endl;
+        return;
+    }
+
+    std::cout << "Rendering gizmos for object: " << m_SelectedObjectPtr->name << std::endl;
+    
+    // Get the selected object's position
+    glm::vec3 objectPos = m_SelectedObjectPtr->transform.position;
+    float gizmoSize = 2.0f; // Smaller size to fit inside the cube
+
+    // Use fixed function pipeline for gizmos - this ALWAYS works
+    glUseProgram(0); // Disable shader temporarily
+    
+    // Disable depth testing so gizmos are always visible
+    glDisable(GL_DEPTH_TEST);
+    
+    // Draw coordinate axes using immediate mode for simplicity
+    glBegin(GL_LINES);
+    
+    // X-axis (Red) - Draw from center outward (at object position)
+    if (m_HoveredAxis == 0 || m_DraggedAxis == 0) {
+        glColor3f(1.0f, 1.0f, 0.0f); // Yellow when hovered/dragged
+    } else {
+        glColor3f(1.0f, 0.0f, 0.0f); // Red normally
+    }
+    glVertex3f(objectPos.x - gizmoSize/2, objectPos.y, objectPos.z);
+    glVertex3f(objectPos.x + gizmoSize/2, objectPos.y, objectPos.z);
+    
+    // Y-axis (Green) - Draw from center outward (at object position)
+    if (m_HoveredAxis == 1 || m_DraggedAxis == 1) {
+        glColor3f(1.0f, 1.0f, 0.0f); // Yellow when hovered/dragged
+    } else {
+        glColor3f(0.0f, 1.0f, 0.0f); // Green normally
+    }
+    glVertex3f(objectPos.x, objectPos.y - gizmoSize/2, objectPos.z);
+    glVertex3f(objectPos.x, objectPos.y + gizmoSize/2, objectPos.z);
+    
+    // Z-axis (Blue) - Draw from center outward (at object position)
+    if (m_HoveredAxis == 2 || m_DraggedAxis == 2) {
+        glColor3f(1.0f, 1.0f, 0.0f); // Yellow when hovered/dragged
+    } else {
+        glColor3f(0.0f, 0.0f, 1.0f); // Blue normally
+    }
+    glVertex3f(objectPos.x, objectPos.y, objectPos.z - gizmoSize/2);
+    glVertex3f(objectPos.x, objectPos.y, objectPos.z + gizmoSize/2);
+    
+    glEnd();
+    
+    // Re-enable depth testing
+    glEnable(GL_DEPTH_TEST);
+    
+    // Reset color
+    glColor3f(1.0f, 1.0f, 1.0f);
+    
+    // Re-enable the main shader
+    shader->Use();
+    
+    std::cout << "Gizmo rendering completed for: " << m_SelectedObjectPtr->name << std::endl;
 }
 
 void EngineUI::DrawAssetBrowser() {
@@ -218,4 +455,146 @@ void EngineUI::DrawMenuBar() {
         }
         ImGui::EndMenuBar();
     }
+}
+
+// NEW: Handle interactive gizmo functionality
+void EngineUI::HandleGizmoInteraction(const ImVec2& mousePos, const ImVec2& viewportSize, bool isMouseDown, bool isMouseDragging) {
+    if (!m_SelectedObjectPtr || !m_ShowGizmos || m_GizmoMode != GizmoMode::Translate) return;
+
+    // Convert mouse position to world ray
+    glm::vec3 rayOrigin = m_Camera->GetCameraPosition();
+    glm::vec3 rayDirection = ScreenToWorldRay(mousePos, viewportSize);
+
+    // Check if hovering over gizmo axes
+    int hoveredAxis = -1;
+    bool isHovered = IsGizmoHovered(rayOrigin, rayDirection, hoveredAxis);
+    
+    m_HoveredAxis = hoveredAxis;
+
+    // Debug output for hover state
+    if (isHovered) {
+        std::cout << "Hovering over axis: " << hoveredAxis << std::endl;
+    }
+
+    // Handle mouse down
+    if (isMouseDown && isHovered) {
+        m_IsGizmoDragging = true;
+        m_DraggedAxis = hoveredAxis;
+        m_GizmoDragStartPos = m_SelectedObjectPtr->transform.position;
+        m_LastMousePos = mousePos;
+        std::cout << "Started dragging axis: " << hoveredAxis << std::endl;
+    }
+
+    // Handle mouse release
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) && m_IsGizmoDragging) {
+        m_IsGizmoDragging = false;
+        m_DraggedAxis = -1;
+        std::cout << "Stopped dragging" << std::endl;
+    }
+
+    // Handle dragging - check for any mouse movement (including held state)
+    if (m_IsGizmoDragging) {
+        ImVec2 currentMousePos = mousePos;
+        ImVec2 mouseDelta = ImVec2(currentMousePos.x - m_LastMousePos.x, currentMousePos.y - m_LastMousePos.y);
+        
+        // Check if mouse actually moved (lower threshold for more responsiveness)
+        if (abs(mouseDelta.x) > 0.05f || abs(mouseDelta.y) > 0.05f) {
+            std::cout << "Mouse delta: (" << mouseDelta.x << ", " << mouseDelta.y << ")" << std::endl;
+            std::cout << "Dragged axis: " << m_DraggedAxis << std::endl;
+            UpdateGizmoDrag(mouseDelta, viewportSize);
+            m_LastMousePos = currentMousePos;
+        } else {
+            std::cout << "Mouse moved but delta too small: (" << mouseDelta.x << ", " << mouseDelta.y << ")" << std::endl;
+        }
+    } else if (m_IsGizmoDragging) {
+        std::cout << "Gizmo dragging but no movement detected" << std::endl;
+    }
+}
+
+// NEW: Check if gizmo axis is hovered
+bool EngineUI::IsGizmoHovered(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, int& hoveredAxis) {
+    if (!m_SelectedObjectPtr) return false;
+
+    glm::vec3 objectPos = m_SelectedObjectPtr->transform.position;
+    float gizmoSize = 2.0f; // Match the rendering size
+    float hitDistance = 0.5f; // Smaller hit area for precision
+
+    // Check each axis
+    for (int axis = 0; axis < 3; axis++) {
+        glm::vec3 axisStart = objectPos;
+        glm::vec3 axisEnd = objectPos;
+        
+        // Set axis direction
+        if (axis == 0) { // X-axis
+            axisStart.x -= gizmoSize/2;
+            axisEnd.x += gizmoSize/2;
+        } else if (axis == 1) { // Y-axis
+            axisStart.y -= gizmoSize/2;
+            axisEnd.y += gizmoSize/2;
+        } else { // Z-axis
+            axisStart.z -= gizmoSize/2;
+            axisEnd.z += gizmoSize/2;
+        }
+
+        // Line-line distance calculation
+        glm::vec3 axisDir = glm::normalize(axisEnd - axisStart);
+        glm::vec3 toRay = rayOrigin - axisStart;
+        
+        float t = glm::dot(toRay, axisDir);
+        glm::vec3 closestPoint = axisStart + t * axisDir;
+        
+        // Clamp to axis bounds
+        if (t < 0) closestPoint = axisStart;
+        else if (t > gizmoSize) closestPoint = axisEnd;
+        
+        // Calculate distance from ray to closest point on axis
+        glm::vec3 rayPoint = rayOrigin + rayDirection * 10.0f;
+        float distance = glm::length(rayPoint - closestPoint);
+        
+        if (distance < hitDistance) {
+            hoveredAxis = axis;
+            return true;
+        }
+    }
+    
+    hoveredAxis = -1;
+    return false;
+}
+
+// NEW: Update gizmo drag movement
+void EngineUI::UpdateGizmoDrag(const ImVec2& mouseDelta, const ImVec2& viewportSize) {
+    if (!m_SelectedObjectPtr || m_DraggedAxis == -1) {
+        std::cout << "UpdateGizmoDrag: No selected object or invalid axis" << std::endl;
+        return;
+    }
+
+    // Use simpler, more direct movement calculation
+    float sensitivity = 0.05f; // Reduced for more precise control
+    glm::vec3 movement = glm::vec3(0.0f);
+
+    // Calculate movement based on dragged axis
+    if (m_DraggedAxis == 0) { // X-axis (Red)
+        // Move along world X-axis
+        movement = glm::vec3(mouseDelta.x * sensitivity, 0.0f, 0.0f);
+        std::cout << "Moving X-axis: delta=" << mouseDelta.x << ", movement=(" << movement.x << "," << movement.y << "," << movement.z << ")" << std::endl;
+    } else if (m_DraggedAxis == 1) { // Y-axis (Green)
+        // Move along world Y-axis
+        movement = glm::vec3(0.0f, -mouseDelta.y * sensitivity, 0.0f);
+        std::cout << "Moving Y-axis: delta=" << mouseDelta.y << ", movement=(" << movement.x << "," << movement.y << "," << movement.z << ")" << std::endl;
+    } else if (m_DraggedAxis == 2) { // Z-axis (Blue)
+        // Move along world Z-axis
+        movement = glm::vec3(0.0f, 0.0f, mouseDelta.y * sensitivity);
+        std::cout << "Moving Z-axis: delta=" << mouseDelta.y << ", movement=(" << movement.x << "," << movement.y << "," << movement.z << ")" << std::endl;
+    }
+
+    // Apply movement to object
+    glm::vec3 oldPos = m_SelectedObjectPtr->transform.position;
+    m_SelectedObjectPtr->transform.position += movement;
+    glm::vec3 newPos = m_SelectedObjectPtr->transform.position;
+    
+    std::cout << "Object moved from (" << oldPos.x << "," << oldPos.y << "," << oldPos.z 
+              << ") to (" << newPos.x << "," << newPos.y << "," << newPos.z << ")" << std::endl;
+    
+    // Verify the object pointer is valid
+    std::cout << "Selected object name: " << m_SelectedObjectPtr->name << std::endl;
 }

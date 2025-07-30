@@ -6,6 +6,8 @@
 
 struct Vertex {
     glm::vec3 Position;
+    glm::vec2 TexCoords;
+    glm::vec3 Normal;
 };
 
 class Mesh {
@@ -15,6 +17,7 @@ public:
 
     bool LoadFromOBJ(const std::string& path);
     void Draw() const;
+    void Draw(class Shader* shader, class Material* material) const;
 
 private:
     std::vector<Vertex> m_Vertices;
